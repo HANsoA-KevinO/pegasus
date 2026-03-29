@@ -59,21 +59,36 @@ export async function executRead(
     }
   }
 
-  // For SVG files with embedded base64 images (post-assembly), truncate the
+  // For SVG/XML files with embedded base64 images (post-assembly), truncate the
   // base64 data to prevent blowing up the LLM context window.
-  // A typical assembled SVG can be 500KB-1MB+ due to embedded icon PNGs.
-  if (ext === 'svg' && content.includes('data:image/png;base64,')) {
-    const truncated = content.replace(
-      /data:image\/[^;]+;base64,[A-Za-z0-9+/=]{200,}/g,
-      (match) => {
-        const prefix = match.slice(0, 60)
-        return `${prefix}...[base64 truncated]`
-      }
-    )
-    return { content: formatWithLineNumbers(truncated, offset, limit) }
+  // A typical assembled SVG/XML can be 500KB-1MB+ due to embedded icon PNGs.
+  if ((ext === 'svg' || ext === 'xml') && content.length > 50_000) {
+    const truncated = stripEmbeddedBase64(content)
+    if (truncated.length < content.length) {
+      return { content: formatWithLineNumbers(truncated, offset, limit) }
+    }
   }
 
   return { content: formatWithLineNumbers(content, offset, limit) }
+}
+
+/**
+ * Strip embedded base64 data URIs from SVG/XML content to prevent context explosion.
+ * Handles both standard format (data:image/png;base64,...) and
+ * draw.io encoded format (data:image/png%3Bbase64,...).
+ */
+function stripEmbeddedBase64(content: string): string {
+  return content
+    // Standard data URI: data:image/png;base64,iVBOR...
+    .replace(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]{200,}/g, (match) => {
+      const kbSize = Math.round(match.length * 0.75 / 1024)
+      return `data:image/...;base64,[${kbSize}KB embedded image data stripped]`
+    })
+    // Draw.io encoded URI: data:image/png%3Bbase64,iVBOR...
+    .replace(/data:image\/[^%]+%3Bbase64,[A-Za-z0-9+/=]{200,}/g, (match) => {
+      const kbSize = Math.round(match.length * 0.75 / 1024)
+      return `data:image/...%3Bbase64,[${kbSize}KB embedded image data stripped]`
+    })
 }
 
 function formatWithLineNumbers(content: string, offset?: number, limit?: number): string {

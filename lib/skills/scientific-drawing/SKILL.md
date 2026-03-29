@@ -3,7 +3,7 @@ name: scientific-drawing
 description: >
   科研绘图工作方法论。当用户要求生成科研论文配图、架构图、流程图、
   方法示意图时触发。涵盖从输入分析、风格提取、逻辑梳理、视觉规格、
-  绘图 prompt 生成到图片生成和 SVG 合成的完整流程。即使用户没有
+  绘图 prompt 生成到图片生成和 Draw.io XML 合成的完整流程。即使用户没有
   明确说"科研绘图"，只要涉及学术图表生成，也应触发此 skill。
 ---
 
@@ -75,12 +75,16 @@ Read `input/user-content.md` 和 `settings/config.md`，识别：
 
 ### Step 6: 生成图片
 
+⚠️ **必须先确认方案** — 在调用 GenerateImage 之前，向用户完整展示当前方案（逻辑结构、视觉规格、绘图 Prompt），使用 AskUserQuestion 询问是否满意。用户确认后才能生图。
+
 使用 GenerateImage 工具，传入 `output/draw-prompt.md` 中的 prompt。
 图片自动保存到 `output/image.png`。
 
-### Step 7: Icon 提取与 SVG 合成（可选 — 生成可编辑 SVG）
+### Step 7: Icon 提取与可编辑图表合成
 
-当需要可编辑的 SVG 输出时，在 Step 6 生图之后执行：
+⚠️ **必须先确认预览图** — 在开始 Step 7 之前，使用 AskUserQuestion 询问用户对 Step 6 生成的预览图是否满意。用户可能需要重新生成或调整方案。确认满意后才能继续。
+
+当需要可编辑输出时，在 Step 6 生图之后执行：
 
 **7a. 生成 Icons-only 版本**
 ```
@@ -120,72 +124,53 @@ ImageProcessor(
 )
 ```
 
-**7e. 逆向原图为 SVG 模板**
+**7e. 逆向原图为可编辑图表**
 
 ⚠️ 关键步骤 — 必须严格遵守以下要求：
 
 1. 先 Read `output/icons/manifest.json`，获取 icon 数量 N、每个 icon 的 bbox、以及图片尺寸
-2. 调用 AnalyzeImage，使用内置 `reverse_svg` 模式（提示词已内置，不需要手写 instruction）：
+
+2. 逆向为 Draw.io XML：
 ```
 AnalyzeImage(
   image_path="output/image.png",
-  mode="reverse_svg",
+  mode="reverse_xml",
   icons=[{id: 1, x: ..., y: ..., width: ..., height: ...}, ...],
   image_width=原图宽度,
   image_height=原图高度
 )
 ```
-3. 将返回的 SVG 写入 `output/diagram.svg`
-4. ⚠️ 写入前检查 SVG 中确实包含 `id="icon_1"` 到 `id="icon_N"` 的 `<rect>` 占位符
+- 将返回的 XML 写入 `output/diagram.xml`
+- ⚠️ 写入前检查 XML 中包含 icon_1 到 icon_N 的占位符 mxCell
+- 箭头使用结构化 edge 对象，连线准确
 
 **7e-2. 视觉一致性审核**
 
-⚠️ 不要直接 Read 图片文件 — 图片 base64 会瞬间撑爆上下文！使用 AnalyzeImage 走独立 API 调用。
-
-1. 调用 `RenderSvg(svg_path="output/diagram.svg", output_path="output/diagram_preview.png")` 渲染 SVG 为 PNG
-2. 调用 AnalyzeImage 的内置 `review_svg` 模式审核：
+加载 `visual-review` 技能执行审核：
 ```
-AnalyzeImage(
-  image_path="output/diagram_preview.png",
-  mode="review_svg"
+Skill(name="visual-review")
+```
+按照该技能的流程对生成的图表进行渲染、对比审核和自动修正。
+
+**7f. 组装最终图表**
+
+```
+AssembleXML(
+  xml_path="output/diagram.xml",
+  manifest_path="output/icons/manifest.json",
+  conversation_id=当前对话ID
 )
-```
-3. 根据返回的问题列表，用 Edit 工具修改 `output/diagram.svg`
-4. 修改后可选再次 RenderSvg + AnalyzeImage(mode="review_svg") 验证，最多迭代 2 轮
-
-**7f. 组装最终 SVG**
-```
-AssembleSVG(
-  svg_path="output/diagram.svg",
-  manifest_path="output/icons/manifest.json"
-)
-→ 自动将每个 icon PNG 嵌入 SVG 对应占位符
+→ 自动将 [icon_N] 占位符替换为 shape=image 的 mxCell，图片以 base64 data URI 嵌入
 ```
 
-**7g. 校验并修正 Icon 位置与大小**
+⚠️ XML 图片嵌入注意事项：
+- **必须使用 AssembleXML 工具**，禁止用 Edit 手动替换占位符
+- Draw.io 编辑器运行在 `embed.diagrams.net` 的 iframe 中，无法访问本站的相对 URL
+- 因此图片**必须以 data URI 方式嵌入**（`data:image/png;base64,...`），而非 URL 引用
+- AssembleXML 会自动从 workspace 读取 icon base64 并生成 data URI
 
-AssembleSVG 完成后，Icon 的位置/大小可能与背景不匹配（manifest 坐标来自光栅图，与 SVG viewBox 坐标系可能存在偏移）。必须执行校验：
-
-1. 调用 AnalyzeImage 分析当前 SVG 的渲染效果（Read `output/diagram.svg`，让模型理解全图），instruction：
-
-```
-请检查这个 SVG 中所有 <image> 元素（icon_1 到 icon_N）的位置和大小是否与背景框架匹配。
-对于每个 icon，告诉我：
-- 当前 x, y, width, height
-- 建议修正后的 x, y, width, height（使 icon 精确落在对应的区块/框内）
-- 如果位置正确则标注"OK"
-
-以 JSON 数组格式返回结果。
-```
-
-2. 根据返回的修正建议，使用 Edit 工具逐个调整 `output/diagram.svg` 中 `<image>` 元素的 x、y、width、height 属性
-3. 调整原则：
-   - Icon 应完全落在对应的色块/框架区域内
-   - 保持合理的 padding（不要贴边）
-   - 保持 icon 的宽高比（`preserveAspectRatio="xMidYMid meet"` 已设置）
-
-**7h. 最终微调（可选）**
-使用 Edit 工具对 SVG 做其他调整（文字、颜色、箭头样式等）。
+**7g. 最终微调（可选）**
+使用 Edit 工具对 XML 做其他调整（文字、颜色、箭头样式等）。
 
 ## 多轮修改规范
 
@@ -204,6 +189,6 @@ AssembleSVG 完成后，Icon 的位置/大小可能与背景不匹配（manifest
 - GenerateImage 和 AnalyzeImage 内部固定使用 Gemini，不受编排模型选择影响
 - GenerateImage 支持多轮编辑：`edit_previous=true` 继续上一轮对话，模型保持完整上下文
 - ImageProcessor 用于像素级图像处理：去白底、连通域检测、裁切
-- AssembleSVG 自动将裁切的 icon 嵌入 SVG 模板占位符
+- AssembleXML 自动将裁切的 icon 嵌入 XML 模板占位符
 - WebSearch 适合搜索会议风格参考、领域视觉惯例
 - 修改已有内容用 Edit，全新内容用 Write

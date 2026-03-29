@@ -13,7 +13,7 @@ export interface GalleryImage {
 export interface WorkspaceArtifact {
   path: string
   label: string
-  type: 'image' | 'svg' | 'markdown' | 'text' | 'gallery'
+  type: 'image' | 'drawio' | 'markdown' | 'text' | 'gallery'
   content: string
   mimeType?: string
   timestamp: number
@@ -31,7 +31,7 @@ export interface ConversationArtifactFields {
   output?: {
     draw_prompt?: string
     image_base64?: string
-    diagram_svg?: string
+    diagram_xml?: string
     image_icons_only_base64?: string
     icons_transparent_base64?: string
     [key: string]: string | undefined
@@ -42,7 +42,8 @@ const PATH_LABELS: Record<string, string> = {
   'output/image.png': '生成图片',
   'output/image_icons_only.png': 'Icons Only',
   'output/icons_transparent.png': '透明背景',
-  'output/diagram.svg': 'SVG 图表',
+
+  'output/diagram.xml': 'Draw.io 图表',
   'output/draw-prompt.md': '绘图 Prompt',
   'analysis/domain-classification.md': '领域分类',
   'analysis/logic-structure.md': '逻辑结构',
@@ -51,7 +52,7 @@ const PATH_LABELS: Record<string, string> = {
 }
 
 function inferType(path: string): WorkspaceArtifact['type'] {
-  if (path.endsWith('.svg')) return 'svg'
+  if (path === 'output/diagram.xml' || path.endsWith('.drawio')) return 'drawio'
   if (path.endsWith('.png') || path.endsWith('.jpg')) return 'image'
   if (path.endsWith('.md')) return 'markdown'
   return 'text'
@@ -167,7 +168,7 @@ export function useWorkspaceArtifacts(parts: DisplayPart[]): WorkspaceArtifact[]
     // Sort: image first, then svg, then others
     const artifacts = Array.from(artifactMap.values())
     artifacts.sort((a, b) => {
-      const priority: Record<string, number> = { image: 0, gallery: 0, svg: 1, markdown: 2, text: 3 }
+      const priority: Record<string, number> = { image: 0, gallery: 0, drawio: 1, markdown: 2, text: 3 }
       const pa = priority[a.type] ?? 9
       const pb = priority[b.type] ?? 9
       if (pa !== pb) return pa - pb
@@ -188,7 +189,8 @@ export function buildArtifactsFromDB(doc: ConversationArtifactFields): Workspace
     { field: doc.output?.image_base64, path: 'output/image.png' },
     { field: doc.output?.image_icons_only_base64, path: 'output/image_icons_only.png' },
     { field: doc.output?.icons_transparent_base64, path: 'output/icons_transparent.png' },
-    { field: doc.output?.diagram_svg, path: 'output/diagram.svg' },
+
+    { field: doc.output?.diagram_xml, path: 'output/diagram.xml' },
     { field: doc.output?.draw_prompt, path: 'output/draw-prompt.md' },
     { field: doc.analysis?.domain_classification, path: 'analysis/domain-classification.md' },
     { field: doc.analysis?.logic_structure, path: 'analysis/logic-structure.md' },
@@ -219,7 +221,7 @@ export function buildArtifactsFromDB(doc: ConversationArtifactFields): Workspace
 
   // Sort same as live artifacts
   artifacts.sort((a, b) => {
-    const priority: Record<string, number> = { image: 0, gallery: 0, svg: 1, markdown: 2, text: 3 }
+    const priority: Record<string, number> = { image: 0, gallery: 0, drawio: 1, markdown: 2, text: 3 }
     const pa = priority[a.type] ?? 9
     const pb = priority[b.type] ?? 9
     if (pa !== pb) return pa - pb

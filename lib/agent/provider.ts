@@ -48,7 +48,8 @@ import { executeGenerateImage } from '../tools/generate-image'
 import { executeAnalyzeImage } from '../tools/analyze-image'
 import { executeWebSearch } from '../tools/web-search'
 import { executeImageProcessor } from '../tools/image-processor'
-import { executeAssembleSVG } from '../tools/assemble-svg'
+
+import { executeAssembleXML } from '../tools/assemble-xml'
 import { executeRenderSvg } from '../tools/render-svg'
 
 // ==================== Provider Factory ====================
@@ -61,6 +62,7 @@ interface ProviderConfig {
   apiKey?: string
   thinkingEnabled?: boolean
   thinkingBudgetTokens?: number
+  conversationId?: string
 }
 
 interface ProviderCallbacks {
@@ -257,7 +259,7 @@ export function createAgentProvider(
           )
         case 'GenerateImage': {
           const genInput = input as { prompt: string; edit_previous?: boolean; output_filename?: string }
-          const result = await executeGenerateImage(genInput, workspace)
+          const result = await executeGenerateImage(genInput, workspace, config.conversationId)
           // Emit image to frontend via SSE (separate from message history)
           if (!result.is_error && result.images?.length && callbacks?.onImageGenerated) {
             callbacks.onImageGenerated(result.images[0].base64, result.images[0].mimeType, genInput.output_filename)
@@ -266,7 +268,7 @@ export function createAgentProvider(
         }
         case 'AnalyzeImage':
           return executeAnalyzeImage(
-            input as { image_path: string; instruction?: string; mode?: 'reverse_svg' | 'review_svg'; icons?: Array<{ id: number; x: number; y: number; width: number; height: number }>; image_width?: number; image_height?: number },
+            input as { image_path: string; instruction?: string; mode?: 'reverse_xml'; icons?: Array<{ id: number; x: number; y: number; width: number; height: number }>; image_width?: number; image_height?: number },
             workspace
           )
         case 'ImageProcessor': {
@@ -278,9 +280,9 @@ export function createAgentProvider(
           }
           return result
         }
-        case 'AssembleSVG':
-          return executeAssembleSVG(
-            input as { svg_path: string; manifest_path: string; output_path?: string },
+        case 'AssembleXML':
+          return executeAssembleXML(
+            input as { xml_path: string; manifest_path: string; conversation_id: string; output_path?: string },
             workspace
           )
         case 'RenderSvg': {

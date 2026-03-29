@@ -198,7 +198,6 @@ export interface ConversationDoc {
     image_icons_only_base64: string
     icons_transparent_base64: string
     icons_manifest: string
-    diagram_svg: string
     // Individual icon slots (1-20)
     [key: `icon_${number}_base64`]: string
   }

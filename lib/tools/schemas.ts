@@ -221,18 +221,16 @@ Important:
     description: `Analyze a workspace image using multimodal vision. Supports custom instructions or built-in modes.
 
 Usage modes:
-1. **Custom instruction**: Pass image_path + instruction for any analysis task
-2. **reverse_svg mode**: Pass image_path + mode="reverse_svg" + icons + image_width + image_height
-   - Automatically builds the full SVG reverse-engineering prompt (pixel-level reproduction, arrows, text, placeholders)
-   - You only need to provide the icon positions from manifest, no need to write the instruction yourself
-3. **review_svg mode**: Pass image_path + mode="review_svg"
-   - Automatically checks the rendered SVG against the original for visual consistency
-   - Returns a list of issues or "审核通过"
+1. **Custom instruction**: Pass image_path + instruction for any analysis task (e.g., visual review, comparison)
+2. **reverse_xml mode**: Pass image_path + mode="reverse_xml" + icons + image_width + image_height
+   - Generates Draw.io mxGraph XML from image with icon placeholders
+   - Uses structured edge objects for accurate arrow/connection handling
 
 Important:
 - Uses a dedicated multimodal model internally, regardless of the orchestrator model
-- For reverse_svg mode, the tool handles the entire prompt including dimension constraints, arrow styles (straight and curved), text matching, and placeholder formatting
-- Save reverse_svg results to output/diagram.svg using Write tool`,
+- For reverse mode, the tool handles the entire prompt including dimension constraints, arrow styles, text matching, and placeholder formatting
+- Save reverse_xml results to output/diagram.xml
+- For visual review/comparison tasks, use custom instruction mode with your own prompt`,
     input_schema: {
       type: 'object',
       properties: {
@@ -248,9 +246,9 @@ Important:
         },
         mode: {
           type: 'string',
-          enum: ['reverse_svg', 'review_svg'],
+          enum: ['reverse_xml'],
           description:
-            'Built-in analysis mode. "reverse_svg": generate SVG from image with icon placeholders. "review_svg": check rendered SVG for visual consistency.',
+            'Built-in reverse-engineering mode. "reverse_xml": generate Draw.io mxGraph XML from image with icon placeholders.',
         },
         icons: {
           type: 'array',
@@ -265,15 +263,15 @@ Important:
             },
           },
           description:
-            'For reverse_svg mode: icon placeholder positions from manifest.json regions.',
+            'For reverse_xml mode: icon placeholder positions from manifest.json regions.',
         },
         image_width: {
           type: 'number',
-          description: 'For reverse_svg mode: original image width in pixels.',
+          description: 'For reverse_xml mode: original image width in pixels.',
         },
         image_height: {
           type: 'number',
-          description: 'For reverse_svg mode: original image height in pixels.',
+          description: 'For reverse_xml mode: original image height in pixels.',
         },
       },
       required: ['image_path'],
@@ -382,35 +380,42 @@ Typical workflow:
     },
   },
   {
-    name: 'AssembleSVG',
-    description: `Assemble final SVG by replacing placeholders with extracted icon images.
+    name: 'AssembleXML',
+    description: `Assemble Draw.io mxGraph XML by replacing icon placeholders with actual icon images embedded as base64 data URIs.
 
-Reads an SVG template and icon manifest, then replaces placeholder elements (<rect> or <g>) with <image> tags containing embedded icon PNGs as base64 data URIs.
+⚠️ You MUST use this tool for XML icon embedding — do NOT manually edit XML to insert image URLs. Draw.io runs in an iframe from embed.diagrams.net, so relative/absolute URLs to our server will NOT resolve. Only data URIs work.
 
-Matching strategy (3-level fallback):
-1. By id attribute: <rect id="icon_1" ...>
-2. By data-icon attribute: <rect data-icon="1" ...>
-3. By approximate coordinates (±15px tolerance)
-Unmatched icons are appended before </svg>.
+Finds mxCell elements with value="[icon_N]" (the dashed placeholder rectangles from AnalyzeImage reverse_xml mode) and replaces them with shape=image cells containing base64 data URIs.
 
-After assembly, you can use Edit tool to fine-tune the SVG (adjust positions, sizes, styles, etc.).`,
+Also handles cells where URLs were previously inserted (converts URL references to data URIs).
+
+Usage:
+- xml_path: path to the XML file with placeholders (e.g., "output/diagram.xml")
+- manifest_path: path to the icon manifest (e.g., "output/icons/manifest.json")
+- conversation_id: current conversation ID
+
+After assembly, the XML will contain self-contained data URI images that draw.io can render directly.`,
     input_schema: {
       type: 'object',
       properties: {
-        svg_path: {
+        xml_path: {
           type: 'string',
-          description: 'Workspace path to the SVG template (e.g., "output/diagram.svg").',
+          description: 'Workspace path to the Draw.io XML file (e.g., "output/diagram.xml").',
         },
         manifest_path: {
           type: 'string',
           description: 'Workspace path to the icon manifest JSON (e.g., "output/icons/manifest.json").',
         },
+        conversation_id: {
+          type: 'string',
+          description: 'Current conversation ID. Used to construct icon image URLs.',
+        },
         output_path: {
           type: 'string',
-          description: 'Output path for the assembled SVG. Defaults to overwriting svg_path.',
+          description: 'Output path for the assembled XML. Defaults to overwriting xml_path.',
         },
       },
-      required: ['svg_path', 'manifest_path'],
+      required: ['xml_path', 'manifest_path', 'conversation_id'],
     },
   },
   {

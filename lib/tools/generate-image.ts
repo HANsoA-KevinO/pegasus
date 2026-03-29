@@ -19,10 +19,24 @@ interface ImageSession {
   lastImageBase64: string | null
   lastImageMimeType: string
   lastTextResponse: string
+  createdAt: number
 }
 
-/** Per-workspace session — automatically GC'd when workspace reference is released */
-const sessions = new WeakMap<WorkspaceInstance, ImageSession>()
+/** Session TTL: 1 hour */
+const SESSION_TTL_MS = 60 * 60 * 1000
+
+/** Per-conversation session — keyed by conversationId to survive across API calls */
+const sessions = new Map<string, ImageSession>()
+
+/** Clean up expired sessions */
+function cleanExpiredSessions() {
+  const now = Date.now()
+  for (const [key, session] of sessions) {
+    if (now - session.createdAt > SESSION_TTL_MS) {
+      sessions.delete(key)
+    }
+  }
+}
 
 // ==================== Main Entry ====================
 
@@ -33,7 +47,8 @@ const sessions = new WeakMap<WorkspaceInstance, ImageSession>()
  */
 export async function executeGenerateImage(
   input: GenerateImageInput,
-  workspace: WorkspaceInstance
+  workspace: WorkspaceInstance,
+  conversationId?: string
 ): Promise<ToolResult> {
   const apiKey = process.env.OPENROUTER_API_KEY
   if (!apiKey) {
@@ -42,12 +57,16 @@ export async function executeGenerateImage(
 
   const { prompt, edit_previous = false, output_filename = 'image.png' } = input
   const outputPath = `output/${output_filename}`
+  const sessionKey = conversationId ?? '__default__'
+
+  // Periodically clean up expired sessions
+  cleanExpiredSessions()
 
   // Build messages based on session state
   let messages: OpenRouterMessage[]
 
   if (edit_previous) {
-    const session = sessions.get(workspace)
+    const session = sessions.get(sessionKey)
     if (!session || !session.lastImageBase64) {
       return {
         content: 'No previous image generation session found. Call GenerateImage without edit_previous first.',
@@ -72,12 +91,12 @@ export async function executeGenerateImage(
       { role: 'user', content: prompt },
     ]
 
-    console.log(`[generate-image] Continue session | ${session.messages.length} existing msgs | prompt: "${prompt.slice(0, 80)}"`)
+    console.log(`[generate-image] Continue session ${sessionKey} | ${session.messages.length} existing msgs | prompt: "${prompt.slice(0, 80)}"`)
   } else {
     // New session
     messages = [{ role: 'user', content: prompt }]
-    sessions.delete(workspace)
-    console.log(`[generate-image] New session | prompt: "${prompt.slice(0, 80)}"`)
+    sessions.delete(sessionKey)
+    console.log(`[generate-image] New session ${sessionKey} | prompt: "${prompt.slice(0, 80)}"`)
   }
 
   console.log(`[generate-image] Sending ${messages.length} messages to ${IMAGE_MODEL}`)
@@ -121,11 +140,12 @@ export async function executeGenerateImage(
       // from lastImageBase64/lastTextResponse on the next edit_previous call)
       const updatedMessages = [...messages]
 
-      sessions.set(workspace, {
+      sessions.set(sessionKey, {
         messages: updatedMessages,
         lastImageBase64: imageBase64,
         lastImageMimeType: imageMimeType,
         lastTextResponse: textResponse,
+        createdAt: sessions.get(sessionKey)?.createdAt ?? Date.now(),
       })
 
       console.log(`[generate-image] Session updated | total msgs for next call: ${updatedMessages.length + 2}`)

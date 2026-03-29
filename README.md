@@ -2,7 +2,7 @@
 
 **AI 科研绘图 Agent** — 全自动、可自我审查、支持持续交互改进的科研论文配图生成与精准编辑系统。
 
-Pegasus 能够根据用户的文字描述或论文内容，自动完成从内容分析、风格提取、图表生成到可编辑 SVG 输出的完整流程。它不只是一个「画图工具」，而是一个具备自主判断能力的 Agent —— 能理解学术语境、遵循顶会视觉规范、主动审核生成质量、并与用户持续对话优化结果。
+Pegasus 能够根据用户的文字描述或论文内容，自动完成从内容分析、风格提取、图表生成到可编辑 Draw.io XML 输出的完整流程。它不只是一个「画图工具」，而是一个具备自主判断能力的 Agent —— 能理解学术语境、遵循顶会视觉规范、主动审核生成质量、并与用户持续对话优化结果。
 
 ![Pegasus 主界面](docs/screenshots/main.png)
 
@@ -12,31 +12,31 @@ Pegasus 能够根据用户的文字描述或论文内容，自动完成从内容
 
 - **全自动工作流** — 从输入分析到最终出图，7 步流程全自动执行，无需手动干预
 - **多学科适配** — 内置计算机科学、生物学、经济学等领域的视觉规范 Skill，自动匹配目标会议/期刊风格
-- **自我审查机制** — 生成 SVG 后自动渲染为 PNG，通过视觉模型对比原图审核一致性，发现问题自动修正
-- **交互式编辑器** — 内置 SVG 可视化编辑器，支持拖拽、缩放、旋转、文字编辑，所见即所得
+- **自我审查机制** — 生成图表后通过视觉模型对比原图审核一致性，发现问题自动修正
+- **交互式编辑器** — 内置 Draw.io 编辑器，支持拖拽、连线、样式编辑，所见即所得
 - **持续对话改进** — Agent 主动提问确认需求，用户可随时要求调整颜色、布局、箭头样式等细节
-- **Icon 智能提取** — 自动从生成图中提取 icon 元素，去除背景后嵌入 SVG，实现矢量+光栅混合编辑
-- **多格式导出** — 支持 SVG 代码下载和 PNG 图片导出
+- **Icon 智能提取** — 自动从生成图中提取 icon 元素，去除背景后嵌入 Draw.io XML，实现可编辑图表
+- **多格式导出** — 支持 Draw.io XML 导出
 
 ---
 
 ## 界面预览
 
-| 创作界面 | SVG 编辑器 |
-|---------|-----------|
-| ![创作界面](docs/screenshots/workspace.png) | ![SVG 编辑器](docs/screenshots/svg-editor.png) |
+| 创作界面 | 编辑器 |
+|---------|--------|
+| ![创作界面](docs/screenshots/workspace.png) | ![编辑器](docs/screenshots/svg-editor.png) |
 
 ![Agent 工作流程与画廊](docs/screenshots/agentflow.png)
 
 ---
 
-## 高保真 SVG 还原
+## 高保真 Draw.io 图表还原
 
-Pegasus 生成的可编辑 SVG 与 AI 原始生成图具有极高的视觉一致性。通过逆向工程 + 视觉审核 + 自动修正的流水线，SVG 版本在布局、配色、箭头、文字等细节上精确还原原图，同时每个元素都可独立编辑。
+Pegasus 生成的可编辑 Draw.io XML 与 AI 原始生成图具有极高的视觉一致性。通过逆向工程 + 视觉审核 + 自动修正的流水线，Draw.io 版本在布局、配色、箭头、文字等细节上精确还原原图，同时每个元素都可独立编辑。
 
-| AI 生成原图 | SVG 可编辑版本 |
-|------------|---------------|
-| ![AI 生成结果](docs/screenshots/AI-generated-results.png) | ![SVG 可编辑结果](docs/screenshots/SVG-editable-results.png) |
+| AI 生成原图 | Draw.io 可编辑版本 |
+|------------|-------------------|
+| ![AI 生成结果](docs/screenshots/AI-generated-results.png) | ![Draw.io 可编辑结果](docs/screenshots/XML-editable-results.png) |
 
 ---
 
@@ -51,21 +51,20 @@ Pegasus 的核心绘图流程分为 7 个步骤：
          → Step 4: 生成视觉规格书
          → Step 5: 编写绘图 Prompt
          → Step 6: 生成图片（Gemini）
-         → Step 7: Icon 提取 + SVG 逆向 + 视觉审核 + 组装
-                   → 可编辑 SVG 输出
+         → Step 7: Icon 提取 + Draw.io XML 逆向 + 视觉审核 + 组装
+                   → 可编辑 Draw.io XML 输出
 ```
 
-### Step 7 详细流程（SVG 合成）
+### Step 7 详细流程（Draw.io XML 合成）
 
 ```
 原图 ──→ 生成 icons-only 版本
      ──→ 去除白色背景
      ──→ 检测 icon 区域（bbox）
      ──→ 裁切单个 icon
-     ──→ 逆向原图为 SVG 模板（AnalyzeImage + Gemini）
-     ──→ 视觉一致性审核（RenderSvg → AnalyzeImage 对比）
-     ──→ 组装最终 SVG（嵌入 icon）
-     ──→ 校验 icon 位置与大小
+     ──→ 逆向原图为 Draw.io XML 模板（AnalyzeImage + Gemini）
+     ──→ 视觉一致性审核
+     ──→ 组装最终 XML（嵌入 icon data URI）
 ```
 
 ---
@@ -126,18 +125,18 @@ workspace/
 ├── output/
 │   ├── draw-prompt.md             # 英文绘图 Prompt
 │   ├── image.png                  # 生成的图片
-│   ├── diagram.svg                # 可编辑 SVG
+│   ├── diagram.xml                # Draw.io 可编辑图表
 │   └── icons/                     # 提取的 icon 素材
 └── settings/config.md             # 目标会议、图片尺寸等配置
 ```
 
-工作区面板支持多标签切换（图片、画廊、SVG 编辑器、Markdown、代码），Agent 生成新内容时自动切换到对应标签。
+工作区面板支持多标签切换（图片、画廊、Draw.io 编辑器、Markdown、代码），Agent 生成新内容时自动切换到对应标签。
 
 ### 快速引用编辑
 
 用户可以在工作区面板中**选中任意文本内容**（分析文档、SVG 代码、配置文件等），选中内容会自动附加到下一条聊天消息中作为上下文引用。Agent 能准确理解用户指向的内容并做出针对性修改。
 
-例如：选中 SVG 代码中的一段 `<path>` 元素 → 输入「把这个箭头改成虚线」→ Agent 精确定位并修改对应元素。
+例如：选中 XML 代码中的一段 mxCell → 输入「把这个箭头改成虚线」→ Agent 精确定位并修改对应元素。
 
 ### 跨对话持久记忆
 
@@ -186,26 +185,22 @@ Agent 不是闷头执行到底 — 它会在关键节点主动暂停并向用户
 
 ### 自我审查与迭代修正
 
-生成 SVG 后，Agent 自动执行视觉一致性审核：
+生成图表后，Agent 自动执行视觉一致性审核：
 
-1. 将 SVG 渲染为 PNG（Puppeteer，完整支持嵌入式图像）
+1. 渲染图表预览图
 2. 调用视觉模型对比渲染图与原始生成图
 3. 逐项检查箭头、文字、线条、色块、占位符位置
-4. 发现问题自动用 `Edit` 工具修正 SVG 代码
+4. 发现问题自动用 `Edit` 工具修正 XML 代码
 5. 最多迭代 2 轮，直到审核通过
 
-### SVG 可视化编辑器
+### Draw.io 交互式编辑器
 
-内置全功能 SVG 编辑器，支持对 Agent 生成的 SVG 进行所见即所得的精细调整：
+内置 Draw.io 编辑器，支持对 Agent 生成的图表进行所见即所得的精细调整：
 
-- **选择与变换** — 双击选中元素，拖拽移动，角点缩放
-- **绘图工具** — 矩形 (R)、圆形 (C)、椭圆 (E)、线段 (L)、箭头 (A)、文字 (T)
-- **文字编辑** — 双击文字元素进入行内编辑
-- **画布控制** — 滚轮缩放（0.1x~5x）、拖拽平移、Space 键临时切换平移模式
-- **撤销/重做** — Ctrl+Z / Ctrl+Shift+Z，完整操作历史
-- **属性面板** — 颜色、描边、字体、透明度等样式编辑
-- **导出** — SVG 代码下载 + PNG 图片导出（2x 高清）
-- **代码视图** — 可视化编辑与 XML 代码视图一键切换
+- **拖拽编辑** — 选中节点拖拽移动、调整大小
+- **连线编辑** — 箭头、连线样式、路径调整
+- **样式面板** — 颜色、字体、边框、填充等属性编辑
+- **导出** — XML 代码下载
 
 ### 可插拔 Skill 系统
 
@@ -225,7 +220,7 @@ pegasus/
 │   ├── chat/               # 对话界面（输入、消息、新建任务表单）
 │   ├── sidebar/            # 侧边栏（历史对话、模型选择）
 │   └── workspace/          # 工作区面板
-│       ├── svg-editor/     # SVG 可视化编辑器
+│       ├── DrawioEditor.tsx # Draw.io 编辑器
 │       ├── ImageGallery.tsx # 多图画廊
 │       └── WorkspacePanel.tsx
 ├── hooks/                  # React Hooks
@@ -249,8 +244,7 @@ pegasus/
 | 数据库 | MongoDB (Mongoose 9) |
 | LLM | Claude Opus 4.6 via OpenRouter （建议使用模型）|
 | 图像生成 | Gemini 3 Pro image preview via OpenRouter |
-| SVG 渲染 | Puppeteer (Headless Chrome) |
-| SVG 编辑 | react-moveable |
+| 图表编辑 | Draw.io (embed.diagrams.net) |
 | 图像处理 | Sharp |
 
 ---

@@ -223,6 +223,13 @@ async function buildWorkspaceSnapshot(workspace: WorkspaceInstance): Promise<str
       continue
     }
 
+    // Skip XML/SVG files with embedded base64 data — they're too large for the summary
+    if (filePath.match(/\.(xml|svg)$/i) && content.length > 50_000) {
+      console.log(`[compaction]   ${filePath}: [large file, ${Math.round(content.length / 1024)}KB] (skipped, contains embedded images)`)
+      sections.push(`## ${filePath}\n[${filePath.split('.').pop()?.toUpperCase()} file with embedded icon images, ${Math.round(content.length / 1024)}KB — too large for summary]`)
+      continue
+    }
+
     console.log(`[compaction]   ${filePath}: ${content.length} chars`)
 
     // Truncate very long text content

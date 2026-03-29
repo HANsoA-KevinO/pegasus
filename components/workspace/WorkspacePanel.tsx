@@ -5,7 +5,8 @@ import { WorkspaceArtifact } from '@/hooks/useWorkspaceArtifacts'
 import { QuotedSelection } from '@/components/chat/ChatContainer'
 import { ImageViewer } from './ImageViewer'
 import { ImageGallery } from './ImageGallery'
-import { SvgEditor } from './svg-editor/SvgEditor'
+
+import { DrawioEditor } from './DrawioEditor'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -20,7 +21,8 @@ interface WorkspacePanelProps {
 const TAB_ICONS: Record<string, string> = {
   image: '\u{1F4CA}',    // chart
   gallery: '\u{1F5BC}',  // framed picture
-  svg: '\u{1F58C}',      // paintbrush
+
+  drawio: '\u{1F4D0}',   // triangular ruler
   markdown: '\u{1F4DD}', // memo
   text: '\u{1F4C3}',     // page with curl
 }
@@ -313,10 +315,10 @@ function ArtifactContent({
         <ImageGallery images={artifact.images ?? []} />
       )
 
-    case 'svg':
+    case 'drawio':
       return (
-        <SvgEditor
-          svgContent={artifact.content}
+        <DrawioEditor
+          xmlContent={artifact.content}
           onUpdate={(newContent) => onArtifactUpdate?.(artifact.path, newContent)}
         />
       )

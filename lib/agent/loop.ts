@@ -88,13 +88,17 @@ export async function agentLoop(
       timestamp: new Date(),
     })
 
-    // AI says "I'm done" → end
-    if (response.stop_reason === 'end_turn') {
+    // Check if there are tool_use blocks in the response content, regardless of stop_reason.
+    // This handles the case where stop_reason='max_tokens' but complete tool_use blocks exist.
+    const hasToolUses = response.content.some(b => b.type === 'tool_use')
+
+    // AI says "I'm done" and no pending tools → end
+    if (response.stop_reason === 'end_turn' && !hasToolUses) {
       return { messages, text: extractText(response), toolCalls, usage: totalUsage, compacted, compactionSummary }
     }
 
-    // AI says "I need tools" → execute tool calls serially (preserves frontend display order)
-    if (response.stop_reason === 'tool_use') {
+    // Process tool calls if present (stop_reason may be 'tool_use' or 'max_tokens')
+    if (hasToolUses) {
       const toolUses = extractToolUses(response)
 
       // Separate AskUserQuestion from regular tools.
@@ -141,7 +145,11 @@ export async function agentLoop(
               toolResultContent = [
                 ...validImages.map(img => ({
                   type: 'image' as const,
-                  source: { type: 'base64' as const, media_type: img.mimeType, data: img.base64.replace(/\s/g, '') },
+                  source: {
+                    type: 'base64' as const,
+                    media_type: detectMimeType(img.base64, img.mimeType),
+                    data: img.base64.replace(/\s/g, ''),
+                  },
                 })),
                 { type: 'text' as const, text: result.content },
               ]
@@ -193,6 +201,20 @@ function extractToolUses(response: LLMResponse): { id: string; name: string; inp
   return response.content
     .filter((b): b is { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } => b.type === 'tool_use')
     .map(b => ({ id: b.id, name: b.name, input: b.input }))
+}
+
+/** Detect actual image MIME type from base64 magic bytes, falling back to the declared type */
+function detectMimeType(base64: string, declared: string): string {
+  const prefix = base64.replace(/\s/g, '').slice(0, 16)
+  // JPEG: starts with /9j/ (FF D8 FF)
+  if (prefix.startsWith('/9j/')) return 'image/jpeg'
+  // PNG: starts with iVBOR (89 50 4E 47)
+  if (prefix.startsWith('iVBOR')) return 'image/png'
+  // GIF: starts with R0lG (47 49 46)
+  if (prefix.startsWith('R0lG')) return 'image/gif'
+  // WebP: starts with UklG (52 49 46 46)
+  if (prefix.startsWith('UklG')) return 'image/webp'
+  return declared
 }
 
 function accumulateUsage(total: TokenUsage, delta: TokenUsage) {

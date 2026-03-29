@@ -3,7 +3,7 @@ import { getConversation, deleteConversation, updateConversationFields } from '@
 
 /** Map workspace paths to MongoDB field paths (for frontend artifact edits) */
 const PATH_TO_FIELD: Record<string, string> = {
-  'output/diagram.svg': 'output.diagram_svg',
+  'output/diagram.xml': 'output.diagram_xml',
   'output/draw-prompt.md': 'output.draw_prompt',
 }
 

@@ -99,8 +99,9 @@ export async function POST(req: NextRequest) {
         skills,
         {
           model: modelProvider,
-          maxTokens: 8192,
+          maxTokens: 32768,
           temperature: 1,
+          conversationId: convId,
         },
         {
           onTextChunk(chunk) {
