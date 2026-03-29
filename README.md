@@ -36,7 +36,7 @@ Pegasus 生成的可编辑 Draw.io XML 与 AI 原始生成图具有极高的视�
 
 | AI 生成原图 | Draw.io 可编辑版本 |
 |------------|-------------------|
-| ![AI 生成结果](docs/screenshots/AI-generated-results.png) | ![Draw.io 可编辑结果](docs/screenshots/XML-editable-results.png) |
+| ![AI 生成结果](docs/screenshots/AI-g-results.png) | ![Draw.io 可编辑结果](docs/screenshots/XML-editable-results.png) |
 
 ---
 
