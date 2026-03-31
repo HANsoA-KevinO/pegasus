@@ -26,7 +26,7 @@ Pegasus 能够根据用户的文字描述或论文内容，自动完成从内容
 
 | 创作界面 | 编辑器 |
 |---------|--------|
-| ![创作界面](docs/screenshots/workspace.png) | ![编辑器](docs/screenshots/svg-editor.png) |
+| ![创作界面](docs/screenshots/workspace.png) | ![编辑器](docs/screenshots/editor.png) |
 
 ![Agent 工作流程与画廊](docs/screenshots/agentflow.png)
 

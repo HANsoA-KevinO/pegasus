@@ -26,7 +26,7 @@ Pegasus automatically completes the entire pipeline from content analysis, style
 
 | Workspace | Editor |
 |-----------|--------|
-| ![Workspace](docs/screenshots/workspace.png) | ![Editor](docs/screenshots/svg-editor.png) |
+| ![Workspace](docs/screenshots/workspace.png) | ![Editor](docs/screenshots/editor.png) |
 
 ![Agent Workflow & Gallery](docs/screenshots/agentflow.png)
 
